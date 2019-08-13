@@ -19,30 +19,12 @@ private double slope = double.PositiveInfinity;
 private int centerX = 0;
 private int centerY = 0;
 
+private bool isUnderAngle(int x, int y) {
+    return (x * slope <= y) && (y >= 0);
+}
+
 private bool isInArc(int x, int y) {
-    // Adjust so we are working in reference to the center of the circle
-    x -= centerX;
-    y -= centerY;
-
-    // Easy to tell if radius too large
-    if (Math.Abs(x) > radius || Math.Abs(y) > radius) 
-        return false;
-
-    if (Math.Sqrt(x*x + y*y) > radius)
-        return false;
-
-    // We already know y is in range; this avoids div by 0 errors
-    if (x < 0) return false;
-
-    #if DEBUG
-    Debug.WriteLine("X,Y: " + x + ", " + y);
-    Debug.WriteLine("Atan(y/x): " + Math.Atan((double)y/(double)x));
-    Debug.WriteLine("Rads: " + rads);
-    #endif
-
-    // Make sure the point is between the angle we want and the 90* line
-    double point_ang = Math.Atan((double)y/(double)x);
-    return (point_ang <= 0.5 && point_ang >= 0.5 - rads);
+    return Math.Sqrt(x*x + y*y) < radius;
 }
 
 // Set up globals
@@ -82,7 +64,7 @@ void Render(Surface dst, Surface src, Rectangle rect)
         {
             CurrentPixel = src[x,y];
             
-            if (!isInArc(x,y)) {
+            if (!(isUnderAngle(x-centerX, y-centerY) || !(isInArc(x-centerX,y-centerY)) )) {
                 CurrentPixel.A = 0;
             }
 
