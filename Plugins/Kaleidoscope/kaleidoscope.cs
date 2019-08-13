@@ -1,5 +1,5 @@
 // Name: Kaleidoscope
-// Submenu: my tools
+// Submenu: Zaya's tools
 // Author: Zaya
 // Title:
 // Version:
