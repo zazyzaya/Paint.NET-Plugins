@@ -1,8 +1,8 @@
-// Name:
-// Submenu:
-// Author:
-// Title:
-// Version:
+// Name: Select Color Range
+// Submenu: Zaya's Tools
+// Author: Zaya
+// Title: Remove a defined color range
+// Version: 1.0
 // Desc:
 // Keywords:
 // URL:
