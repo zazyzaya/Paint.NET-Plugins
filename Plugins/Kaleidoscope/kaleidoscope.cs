@@ -8,44 +8,72 @@
 // URL:
 // Help:
 #region UICode
-AngleControl angle = 45; // [1,180] Slices
+IntSliderControl angle = 8; // [4,36] Slices
 #endregion
 
-private double radius = null;
-private double rads = null;
+private double radius = 0;
+private double rads = 1337;
 
 // The slope of a "slice" of the pie
-private double slope = Math.tan(0.5 - rads);
+private double slope = double.PositiveInfinity;
+private int centerX = 0;
+private int centerY = 0;
 
-// Check if x,y fall between the outline of the circle and the line slicing it
-private boolean isInArc(int x, int y) {
-    return ((slope * x < y) && (Math.cos(x) * radius > y)
+private bool isInArc(int x, int y) {
+    // Adjust so we are working in reference to the center of the circle
+    x -= centerX;
+    y -= centerY;
+
+    // Easy to tell if radius too large
+    if (Math.Abs(x) > radius || Math.Abs(y) > radius) 
+        return false;
+
+    if (Math.Sqrt(x*x + y*y) > radius)
+        return false;
+
+    // We already know y is in range; this avoids div by 0 errors
+    if (x < 0) return false;
+
+    #if DEBUG
+    Debug.WriteLine("X,Y: " + x + ", " + y);
+    Debug.WriteLine("Atan(y/x): " + Math.Atan((double)y/(double)x));
+    Debug.WriteLine("Rads: " + rads);
+    #endif
+
+    // Make sure the point is between the angle we want and the 90* line
+    double point_ang = Math.Atan((double)y/(double)x);
+    return (point_ang <= 0.5 && point_ang >= 0.5 - rads);
 }
 
 // Set up globals
 void PreRender(Surface dst, Surface src) {
-    // Clean this up later
-    if (radius == null) {
-        radius = src.Height / 2
-        if (radius < src.Width / 2) 
-            radius = src.Width / 2;
+    Rectangle selection = EnvironmentParameters.GetSelection(src.Bounds).GetBoundsInt();
+
+    if (radius == 0) {
+        radius = Math.Min(selection.Height / 2, selection.Width / 2);
     }
 
-    if (rads == null) {
-        rads = (Math.PI * angle) / 180;
+    if (rads == 1337) {
+        rads = (Math.PI * 2) / angle;
+    }
+
+    if (slope == double.PositiveInfinity) {
+        slope = Math.Tan(rads);
+    }
+
+    if (centerX == 0) {
+        centerX = (selection.Right - selection.Left) / 2;
+        centerX += selection.Left;
+    }
+
+    if (centerY == 0) {
+        centerY = (selection.Bottom - selection.Top) / 2;
+        centerY += selection.Top;
     }
 }
 
 void Render(Surface dst, Surface src, Rectangle rect)
 {
-    // Delete any of these lines you don't need
-    Rectangle selection = EnvironmentParameters.GetSelection(src.Bounds).GetBoundsInt();
-    int CenterX = ((selection.Right - selection.Left) / 2) + selection.Left;
-    int CenterY = ((selection.Bottom - selection.Top) / 2) + selection.Top;
-    ColorBgra PrimaryColor = EnvironmentParameters.PrimaryColor;
-    ColorBgra SecondaryColor = EnvironmentParameters.SecondaryColor;
-    int BrushWidth = (int)EnvironmentParameters.BrushWidth;
-
     ColorBgra CurrentPixel;
     for (int y = rect.Top; y < rect.Bottom; y++)
     {
@@ -53,12 +81,11 @@ void Render(Surface dst, Surface src, Rectangle rect)
         for (int x = rect.Left; x < rect.Right; x++)
         {
             CurrentPixel = src[x,y];
-            // TODO: Add pixel processing code here
-            // Access RGBA values this way, for example:
-            // CurrentPixel.R = PrimaryColor.R;
-            // CurrentPixel.G = PrimaryColor.G;
-            // CurrentPixel.B = PrimaryColor.B;
-            // CurrentPixel.A = PrimaryColor.A;
+            
+            if (!isInArc(x,y)) {
+                CurrentPixel.A = 0;
+            }
+
             dst[x,y] = CurrentPixel;
         }
     }
