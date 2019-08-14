@@ -10,7 +10,7 @@
 #region UICode
 IntSliderControl slices = 4; // [2,36] Slices
 CheckboxControl square = false; // [0,1] Square
-//AngleControl offset = 90; // [-180,180] Sample Angle 
+AngleControl offset = 90; // [-180,180] Sample Angle 
 #endregion
 
 // Based on selection; defined during PreRender
@@ -18,16 +18,18 @@ private int centerX = 0;
 private int centerY = 0;
 private double radius = 0;
 
-// Statics
-private double piOver2 = Math.PI / 2;
+// Statics (prevent from computing over and over)
+private static double piOver2 = Math.PI / 2;
+private static double threePiOver2 = 3*piOver2;
+private static double twoPi = 2*Math.PI;
 
 // Based on usr input; defined during Render
 private double theta;
 private double slope;
 
 // TODO 
-//private double offset_slope;
-//private double offset_ang;
+private double phi_slope;
+private double phi;
 
 // Returns a coordinates position if it were rotated theta radians
 private Pair<int, int> getRotatedCoords(double theta, int x, int y) {
@@ -42,16 +44,64 @@ private Pair<int, int> getRotatedCoords(double theta, int x, int y) {
     return ret;
 }
 
-private bool isInRange(int x, int y) {
-    //if (offset_ang == piOver2)
-    return (x >= 0 && y >= 0);
+// Safely convert angle to slope of line made by that angle
+private double getSlope(double angle) {
+    if (angle != piOver2 && angle != 3*piOver2) {
+        return Math.Tan(angle);
+    }
 
-    //else 
-    //    return (x * offset_slope <= y);
+    if (angle == piOver2) {
+        return double.PositiveInfinity;
+    }
+
+    else {
+        return double.NegativeInfinity;
+    }
 }
 
-private bool isOverAngle(int x, int y) {
-    return (x * slope <= y);
+private bool isInRange(int x, int y) {
+    bool tCheck, gCheck;
+
+    // Set theta slope tests
+    if (slope == double.PositiveInfinity) {
+        tCheck = x < 0;
+    }
+    else if (slope == double.NegativeInfinity) {
+        tCheck = x > 0;
+    }
+    else if (slope > 0) {
+        tCheck = x*slope < y;
+    }
+    else if (slope < 0) {
+        tCheck = x*slope > y;
+    }
+    else { // Slope is 0 means it depends where the phi slope is pointing, up or down
+        tCheck = phi_slope > slope ? slope*x < y : slope*x > y;
+    }
+
+    // Skip the phi tests if the theta test fails
+    if (!tCheck)
+        return false;
+
+    // Set phi slope tests
+    if (phi_slope == double.PositiveInfinity) {
+        gCheck = x >= 0;
+    }
+    else if (phi_slope == double.NegativeInfinity) {
+        gCheck = x <= 0;
+    }
+    else if (phi_slope > 0) {
+        gCheck = phi_slope * x >= y;
+    }
+    else if (phi_slope < 0) {
+        gCheck = phi_slope * x <= y;
+    }
+    else { // Same deal as theta slope; if it's zero, it depends where the other is at
+        gCheck = phi_slope > slope ? phi_slope*x > y : phi_slope*x < y;
+    }
+
+    // By now we know tCheck is true, so true && gCheck = gCheck
+    return gCheck;
 }
 
 private bool isInArc(int x, int y) {
@@ -60,6 +110,24 @@ private bool isInArc(int x, int y) {
     
     else 
         return (Math.Abs(x) <= radius && Math.Abs(y) <= radius);
+}
+
+// Uses coordinates to determine exact angle within range 0 - 2Pi
+private double smartAtan(double angle, double x, double y) {
+    if (x == 0) {
+        if (y == 0) return phi; // Easier to just let origin be in initial slice
+        return y > 0 ? piOver2 : threePiOver2;
+    }
+
+    double atan = Math.Atan(y/x);
+    if (x > 0) {
+        return y > 0 ? atan : atan + twoPi;
+    }
+    // For readability. I know it's not necessary
+    else {
+        return Math.PI + atan;
+    }
+
 }
 
 // Set up globals
@@ -83,10 +151,11 @@ void Render(Surface dst, Surface src, Rectangle rect)
 {
     Rectangle selection = EnvironmentParameters.GetSelection(src.Bounds).GetBoundsInt();
     
-    theta = Math.PI / slices;
-    //offset_ang = (Math.PI / 180) * offset;
-    slope = Math.Tan(piOver2 - theta);
-    //offset_slope = Math.Tan(piOver2);
+    phi = (Math.PI / 180) * offset;
+    theta = offset_ang + (Math.PI / slices);
+
+    slope = getSlope(theta);
+    phi_slope = getSlope(phi);
     
     ColorBgra CurrentPixel;
     for (int y = rect.Top; y < rect.Bottom; y++)
@@ -100,20 +169,13 @@ void Render(Surface dst, Surface src, Rectangle rect)
             // Check if inside circle
             if (isInArc(adjX, adjY)) {
 
-                // Check if in angle we are keeping
-                if ( !(isInRange(adjX, adjY) && isOverAngle(adjX, adjY)) ) {
+                // Check if in angle we are keeping; otherwise, find the appropriate region in original slice
+                if ( !isInRange(adjX, adjY) ) {
                     double rotations;
-                    double phi;
+                    double gamma;   // Distance between this angle and theta
 
-                    // We know its in the bottom-most slice
-                    if (adjX == 0) {
-                        rotations = slices - 1;
-                    }
-                    else {
-                        phi = (double)(adjY) / (double)(adjX);
-                        phi = Math.Atan(phi);
-                        rotations = Math.Floor((piOver2 - phi) / theta);
-                    }
+                    gamma = smartAtan((gamma, (double)adjX, (double)adjY);
+                    rotations = Math.Floor((phi - gamma) / theta);
                     
                     // Angle is the same on either horizontal line of symmetry of the circle
                     // This is to compensate
@@ -123,15 +185,7 @@ void Render(Surface dst, Surface src, Rectangle rect)
                     }
                     
                     Pair<int, int> rotatedCoords = getRotatedCoords(rotations * theta, adjX, adjY);
-
-                    /* // I think something's wrong with the rotate method, this catches out of bounds rotations though
-                    if (centerX - Math.Abs(rotatedCoords.First) < 0 || centerY - Math.Abs(rotatedCoords.Second) < 0) {
-                        CurrentPixel.A = 0;
-                    }
-                    else { */
                     CurrentPixel = src[rotatedCoords.First + centerX, centerY-rotatedCoords.Second];
-                    //}
-                    //CurrentPixel.A = 0;
                 }
             }
             else {
