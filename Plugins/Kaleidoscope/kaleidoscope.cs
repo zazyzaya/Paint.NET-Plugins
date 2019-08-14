@@ -1,5 +1,5 @@
 // Name: Kaleidoscope
-// Submenu: Zaya's tools
+// Submenu: Zaya's Tools
 // Author: Zaya
 // Title:
 // Version: 1.1
@@ -8,7 +8,7 @@
 // URL:
 // Help:
 #region UICode
-IntSliderControl slices = 4; // [2,36] Slices
+IntSliderControl slices = 4; // [2,180] Slices
 CheckboxControl square = false; // [0,1] Square
 AngleControl offset = 45; // [0,360] Sample Angle 
 #endregion
