@@ -2,15 +2,15 @@
 // Submenu: Distort
 // Author: Zaya
 // Title:
-// Version: 1.2
+// Version: 1.3
 // Desc:
 // Keywords:
 // URL:
 // Help:
 #region UICode
 IntSliderControl slices = 4; // [2,180] Slices
-CheckboxControl square = false; // [0,1] Square
 AngleControl offset = 45; // [0,360] Sample Angle 
+IntSliderControl feather = 15; // [0,100] Feathering
 #endregion
 
 // Based on selection; defined during PreRender
@@ -24,6 +24,7 @@ private static double threePiOver2 = 3*piOver2;
 private static double twoPi = 2*Math.PI;
 
 // Based on usr input; defined during Render
+// Mandala variables
 private double angle;
 private double theta;
 private double theta_slope;
@@ -31,6 +32,10 @@ private double phi_slope;
 private double phi;
 private int tQuad, pQuad;
 private bool sameQuadrant;
+
+// Feathering variables
+private double fStart;
+private double fLen;
 
 // Returns a coordinates position if it were rotated theta radians
 private Pair<int, int> getRotatedCoords(double theta, int x, int y) {
@@ -113,11 +118,7 @@ private bool isInRange(int x, int y) {
 }
 
 private bool isInArc(int x, int y) {
-    if (!square)
-        return Math.Sqrt(x*x + y*y) < radius;
-    
-    else 
-        return (Math.Abs(x) <= radius && Math.Abs(y) <= radius);
+    return Math.Sqrt(x*x + y*y) < radius;
 }
 
 // Uses coordinates to determine exact angle within range 0 - 2Pi
@@ -138,6 +139,14 @@ private double smartAtan(double x, double y) {
 
 }
 
+unsafe private void zFeather(ColorBgra *p, int x, int y) {
+    double dist = Math.Sqrt(x*x + y*y);
+    if (dist <= fStart) return;
+        
+    double fAmt = (fLen - (dist - fStart)) / fLen;
+    p->A = (byte)Math.Floor(255 * fAmt);
+}
+
 // Set up globals
 void PreRender(Surface dst, Surface src) {
     Rectangle selection = EnvironmentParameters.GetSelection(src.Bounds).GetBoundsInt();
@@ -155,7 +164,7 @@ void PreRender(Surface dst, Surface src) {
     }
 }
 
-void Render(Surface dst, Surface src, Rectangle rect)
+unsafe void Render(Surface dst, Surface src, Rectangle rect)
 {
     Rectangle selection = EnvironmentParameters.GetSelection(src.Bounds).GetBoundsInt();
     
@@ -163,6 +172,8 @@ void Render(Surface dst, Surface src, Rectangle rect)
     angle = Math.PI / slices;
     theta = phi - angle;
     theta = theta < 0 ? theta + twoPi : theta;
+    fStart = radius * ((double)(100-feather) / 100);
+    fLen = radius - fStart;
 
     // Determine the quadrant both angles are in 
     // Useful to have this calculated here (once) rather than in the loops
@@ -200,8 +211,9 @@ void Render(Surface dst, Surface src, Rectangle rect)
                     Pair<int, int> rotatedCoords = getRotatedCoords(rotations * angle, adjX, adjY);
                     
                     CurrentPixel = src[rotatedCoords.First + centerX, centerY-rotatedCoords.Second];
-                    //CurrentPixel.A = 0;
                 }
+
+                zFeather(&CurrentPixel, adjX, adjY);
             }
             else {
                 CurrentPixel.A = 0;    
