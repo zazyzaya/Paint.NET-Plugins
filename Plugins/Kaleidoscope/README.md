@@ -3,5 +3,5 @@ Turns a selected area into a mandala-like radial symmetry pattern based on the l
 
 User can select between 2 and 180 slices per half of the circle (4-360) and may adjust the angle that the slices repeat using the angle slider. 
 
-![Example Image](example.png)
-![Example Image](example2.png)
+![Example Image](img/example.png)
+![Example Image](img/example2.png)

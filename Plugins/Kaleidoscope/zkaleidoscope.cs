@@ -1,8 +1,8 @@
-// Name: Kaleidoscope
-// Submenu: Zaya's Tools
+// Name: zKaleidoscope
+// Submenu: Distort
 // Author: Zaya
 // Title:
-// Version: 1.1
+// Version: 1.2
 // Desc:
 // Keywords:
 // URL:
