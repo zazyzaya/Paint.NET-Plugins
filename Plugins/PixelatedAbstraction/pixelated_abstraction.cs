@@ -13,9 +13,9 @@ IntSliderControl num_colors = 2; // [2, 255] Colors
 IntSliderControl weight = 10; // [0, 20] Weight
 #endregion
 
-double M, N;
-double newW, newH;
-double[] super_pixels; 
+int N, M;
+int sp_width, sp_height, sel_width, sel_height;
+double sp_unit_width, sp_unit_height;
 
 // Distance function to determine how "close" two pixels are   __
 // Because this is called a zillion times, precalculate     m\/N/M
@@ -34,43 +34,42 @@ double distance(ColorBgra c1, int x1, int y1, ColorBgra c2, int x2, int y2, doub
     return dc + coef*dp;
 }
 
-Pair<int, int> findNearest(ColorBgra input, int ix, int iy, ColorBgra[,] superPixels, int sy, int sx) {
-    Pair<int, int> nearest = new Pair<int, int>(0,0);
-    double nearest_val = 10000;
-
-    double coef = (double)weight * Math.Sqrt((double)(N) / (double)(M))
-    for (int y=0; i<sy; y++) {
-        for (int x=0; x<sx; x++) {
-            double dst = distance(input, ix, iy, superPixels[x,y], x, y, coef);
-            
-            if (dst < nearest_val) {
-                nearest_val = dst;
-                nearest = new Pair<int, int>(x,y);
-            }
+double[,] findNearest(Rectangle selection, Surface src, ColorBgra me, int sx, int sy) {
+    double[,] distances = new double[sel_width, sel_height];
+    for (int y=selection.Top; y<selection.Bottom; y++) {
+        for (int x=selection.Left; x<selection.Right; x++) {
+            distances[x,y] = distance(src[x,y], x, y, me, sx, sy)
         }
     }
 
-    return nearest;
+    return distances;
 }
 
 // Use KNN to assign superpixels O(n^3) must be done once
 // Technically this should all be done in LAB color space, but 
 // PDN doesn't have an easy way to convert, so we're using sad ol RGB
 void PreRender(Surface dst, Surface src) {
-    newW = Math.Floor(src.Width / scale);
-    newH = Math.Floor(src.Height / scale);
-    
-    M = src.Height * src.Width;
-    N = newW * newH;
+    Rectangle selection = EnvironmentParameters.GetSelection(src.Bounds).GetBoundsInt();
+    sel_width = (selection.Right - selection.Left);
+    sel_height = (selection.Top - selection.Bottom);
+    M = sel_height * sel_width;
+
+    // How many super pixels per row/col
+    sp_width = (selection.Right - selection.Left) / scale;
+    sp_height = (selection.Top - selection.Bottom) / scale;
+    N = sp_width * sp_height;
+
+    // How large is one superpixel
+    sp_unit_width = (selection.Right - selection.Left) / sp_width;
+    sp_unit_height = (selection.Top - selection.Bottom) / sp_height;
 
     int pallette_size = 1;
     ColorBgra[] pallette = new ColorBgra[num_colors];
-    super_pixels = new ColorBgra[newW, newH];
     
     // Initialize pallette
     int[] sum = [0,0,0];
-    for (int y=0; y<src.Height; y++) {
-        for (int x=0; x<src.Width; x++) {
+    for (int y=selection.Top; y<selection.Bottom; y++) {
+        for (int x=selection.Left; x<selection.Right; x++) {
             sum[0] += (int)src[x,y].B;
             sum[1] += (int)src[x,y].G;
             sum[2] += (int)src[x,y].R;
@@ -83,23 +82,20 @@ void PreRender(Surface dst, Surface src) {
     pallette[0] = ColorBgra.FromBgr((byte)sum[0], (byte)sum[1], (byte)sum[2]);
 
     // All superpixels have mean color first iteration
-    for (int y=0; y<newH; y++) {
-        for (int x=0; x<newW; x++) {
+    for (int y=0; y<sp_height; y++) {
+        for (int x=0; x<sp_width; x++) {
             super_pixels[x,y] = pallette[0];
         }
     }
 
-    Pair<int, int>[,] assigned_sp = new Pair<int, int>[src.Height, src.Width];
-    int superH = src.Height, superW = src.Width;
-
+    Pair<int, int>[ , , ] neighbors = new Pair<int, int>[sp_width, sp_height, M];
     while (pallette_size < num_colors) {
-        // find nearest neighbor
-        for (int y=0; y<src.Height; y++) {
-            for (int x=0; x<src.Width; x++) {
-                assigned_sp[x,y] = findNearest(src[x,y], x, y, super_pixels, superH, superW);
+        // find nearest neighbors
+        for (int y=0; y<sp_height; y++) {
+            for (int x=0; x<sp_width; x++) {
+
             }
         }
-
         // move superpixels
 
         // adjust color pallette
