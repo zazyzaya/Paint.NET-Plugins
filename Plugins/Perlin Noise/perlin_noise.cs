@@ -8,8 +8,8 @@
 // URL:
 // Help:
 #region UICode
-DoubleSliderControl p_width = 50; // [1,100] Gradient Width
-DoubleSliderControl p_height = 50; // [1,100] Gradient Height
+DoubleSliderControl p_width = 15; // [0,100] Gradient Width
+DoubleSliderControl p_height = 15; // [0,100] Gradient Height
 ListBoxControl ang_range = 0; // Angle Range|90|45|22.5|full
 CheckboxControl not_smooth = false; // [X] Disable Smoothing
 CheckboxControl rings = false; // [0,1] Rings
@@ -163,16 +163,16 @@ void PreRender(Surface dst, Surface src) {
     g_unit_height = (selection.Bottom - selection.Top) * (p_height / 100);
 
     // Prevent gradient squares from being smaller than pixels
-    if (g_unit_width < 2) {
-        g_unit_width = 2;
-        g_width = (selection.Right - selection.Left) / 2;
+    if (g_unit_width < 1) {
+        g_unit_width = 1;
+        g_width = (selection.Right - selection.Left);
     } else {
         g_width = (int) Math.Ceiling((100 / p_width));
     }
 
-    if (g_unit_height < 2) {
-        g_unit_height = 2;
-        g_height = (selection.Bottom - selection.Top) / 2;
+    if (g_unit_height < 1) {
+        g_unit_height = 1;
+        g_height = (selection.Bottom - selection.Top);
     } else {
         g_height = (int) Math.Ceiling((100 / p_height));
     }
