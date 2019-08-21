@@ -10,47 +10,105 @@
 #region UICode
 DoubleSliderControl p_width = 15; // [0,100] Gradient Width
 DoubleSliderControl p_height = 15; // [0,100] Gradient Height
+ColorWheelControl white = ColorBgra.FromBgr(255,255,255); // [White] Primary Color
+ColorWheelControl black = ColorBgra.FromBgr(0,0,0); // [Black] Secondary Color
 ListBoxControl ang_range = 0; // Angle Range|90|45|22.5|full
 CheckboxControl not_smooth = false; // [X] Disable Smoothing
 CheckboxControl rings = false; // [0,1] Rings
 TextboxControl seed = ""; // [0,255] Seed
 #endregion
 
-//AngleControl ang_start = 0; // [-180,180] Rotation
+struct Vector {
+    public double x;
+    public double y;
 
-Random rnd;
-Tuple<double, double>[] possible_angles;
-Tuple<double, double>[ , ] gradient = null;
-int g_width, g_height;
-double g_unit_width, g_unit_height;
-
-Tuple<double, double> GetRandVector() {
-    // Much faster way of doing this; Perlin simplex noise method
-    if (ang_range < 3) {
-        int i = rnd.Next(8);
-        
-        // So 90 will only pick 0 or 4, 45 will only pick evens and 22.5 picks any
-        i %= 1 << (ang_range + 1);
-        i *= 1 << (2 - ang_range);
-        
-        if (rnd.Next(2) != 0) {
-            return possible_angles[i];
-        }
-        // Negate it half the time
-        else {
-            return new Tuple<double, double>(-possible_angles[i].Item1, -possible_angles[i].Item2);
-        }
-    }
-
-    // Generate random angle of dist 1
-    // Slower way of doing this; Perlin original noise method
-    else {
-        double ang = 2*Math.PI*rnd.NextDouble();
-        return new Tuple<double, double>(Math.Cos(ang), Math.Sin(ang));
+    public Vector (double xx, double yy) {
+        x = xx; y = yy;
     }
 }
 
-void BuildGradient() {
+struct Coordinate {
+    public int x;
+    public int y;
+
+    public Coordinate (int xx, int yy) {
+        x = xx; y = yy;
+    }
+}
+
+struct RGBVector {
+    public int r;
+    public int g;
+    public int b;
+
+    public RGBVector(int rr, int gg, int bb) {
+        r = rr; g = gg; b = bb;
+    }
+
+    public RGBVector ScalarMult(double multiplier) {
+        return new RGBVector(
+            (int)(r * multiplier),
+            (int)(g * multiplier),
+            (int)(b * multiplier)
+        );
+    }
+
+    public RGBVector Add(RGBVector other) {
+        return new RGBVector(
+            r + other.r,
+            g + other.g,
+            b + other.b
+        );
+    }
+
+    public RGBVector FromBgra(ColorBgra c) {
+        return new RGBVector(
+            c.R,
+            c.G,
+            c.B
+        );
+    }
+
+    public ColorBgra ToBgra() {
+        return ColorBgra.FromBgr(
+            (byte) b, 
+            (byte) g,
+            (byte) r
+        );
+    }
+}
+
+Random rnd;
+Vector[] possible_angles;
+int[ , ] gradient;          // Can't use pointers, but can use index of possible angles 
+Vector[ , ] slowGradient;   // If all angles selected, have to do this the slow way
+int g_width, g_height;
+double g_unit_width, g_unit_height;
+
+RGBVector usr_w, usr_b;
+
+// Perlin Simplex method; faster to use pre allowed vectors
+int GetRandVector() {
+    int i = rnd.Next(8);
+    
+    // So 90 will only pick 0 or 4, 45 will only pick evens and 22.5 picks any
+    i %= 1 << (ang_range + 1);
+    i *= 1 << (2 - ang_range);
+    
+    // Decide randomly if negative or positive
+    if (rnd.Next(2) % 2 == 0)
+        return i;
+    else    
+        return i + 8;
+}
+
+// Original Perlin noise; slower but more varied
+Vector GetRandVectorSlow() {
+    double ang = 2*Math.PI*rnd.NextDouble();
+    return new Vector(Math.Cos(ang), Math.Sin(ang));
+}
+
+unsafe void BuildGradient() {
     // Seed random generator (this should not be run concurrently)
     if (String.Equals(seed, "")) {
         rnd = new Random();
@@ -59,17 +117,32 @@ void BuildGradient() {
         rnd = new Random(seed.GetHashCode());
     }
 
-    gradient = new Tuple<double, double>[g_width+3, g_height+3];
-    for (int y=0; y<=g_height+2; y++) {
-        for (int x=0; x<=g_width+2; x++) {
-            gradient[x,y] = GetRandVector();
+    // Predefined angles
+    if (ang_range < 3) {
+        gradient = new int[g_width+3, g_height+3];
+        for (int y=0; y<=g_height+2; y++) {
+            for (int x=0; x<=g_width+2; x++) {
+                gradient[x,y] = GetRandVector();
+            }
         }
+        return;
+    }
+
+    // Pseudo-random angles
+    else {
+        slowGradient = new Vector[g_width+3, g_height+3];
+        for (int y=0; y<=g_height+2; y++) {
+            for (int x=0; x<=g_width+2; x++) {
+                slowGradient[x,y] = GetRandVectorSlow();
+            }
+        }
+        return;
     }
 }
 
 // Returns a list of the 4 gradient vectors that surround a given coord
 // Assumes the input coordinate is normalized (e.g. 0,0 means the top, left of the selection)
-Tuple<int, int>[] FindCellCorners(int x, int y) {
+Coordinate[] FindCellCorners(int x, int y) {
     int gx = (int)(x / g_unit_width);
     int gy = (int)(y / g_unit_height);
 
@@ -78,9 +151,9 @@ Tuple<int, int>[] FindCellCorners(int x, int y) {
     if (gx == g_width+1) gx--;
     if (gy == g_height+1) gy--;
 
-    return new Tuple<int, int>[] {
-        Tuple.Create(gx,gy), Tuple.Create(gx+1, gy), 
-        Tuple.Create(gx, gy+1), Tuple.Create(gx+1, gy+1)
+    return new Coordinate[] {
+        new Coordinate(gx,gy), new Coordinate(gx+1, gy), 
+        new Coordinate(gx, gy+1), new Coordinate(gx+1, gy+1)
     };
 }
 
@@ -97,7 +170,7 @@ double smooth(double x) {
 // Returns the Perlin noise value for a given point
 // Assumes the input coordinate is normalized (e.g. 0,0 means the top, left of the selection)
 double Perlin(int ox, int oy) {
-    Tuple<int, int>[] neighbors = FindCellCorners(ox,oy);
+    Coordinate[] neighbors = FindCellCorners(ox,oy);
     
     // Find coord in reference to top left of grid box
     double x = ((double) ox / g_unit_width);
@@ -107,9 +180,16 @@ double Perlin(int ox, int oy) {
     // That corner's vector
     double[] dps = new double[4]; 
     for (int i=0; i<4; i++) {
-        int gx=neighbors[i].Item1, gy=neighbors[i].Item2;
-        double sx=gradient[gx, gy].Item1, sy=gradient[gx, gy].Item2;
-        double dx, dy;
+        double dx, dy;                                          // Distance between me and neighbor
+        Vector angle;                                           // Neighbor's vector
+        int gx=neighbors[i].x, gy=neighbors[i].y;               // Neighbor's position
+
+        // Neighbor's angle
+        if (ang_range < 3)
+            angle = possible_angles[gradient[gx,gy]];
+        else 
+            angle = slowGradient[gx, gy];
+        
 
         // Find distance vector
         if (!rings) {
@@ -118,15 +198,15 @@ double Perlin(int ox, int oy) {
         }
         // Was originally a bug, but I think it makes a cool effect
         else {
-            dx = x - sx;
-            dy = x - sy;
+            dx = x - angle.x;
+            dy = x - angle.y;
         }
 
         // Take dot product w gradient vector
-        dps[i] = sx * dx + sy + dy;
+        dps[i] = angle.x * dx + angle.y * dy;
     }
 
-    // No longer care about non-decimal part TODO add smoothing here
+    // No longer care about the decimal part
     x -= Math.Truncate(x);
     y -= Math.Truncate(y);
 
@@ -151,9 +231,11 @@ double Perlin(int ox, int oy) {
 
 void PreRender(Surface dst, Surface src) {
     // Also the negative of all of these angles
-    possible_angles = new Tuple<double, double>[] {
-        Tuple.Create(1.0, 0.0), Tuple.Create(0.92388, 0.382683), Tuple.Create(0.707107, 0.707107), Tuple.Create(0.382683, 0.92388),
-        Tuple.Create(0.0, 1.0), Tuple.Create(-0.382683, 0.92388), Tuple.Create(-0.707107, 0.707107), Tuple.Create(-0.92388, 0.382683),
+    possible_angles = new Vector[] {
+        new Vector(1.0, 0.0), new Vector(0.92388, 0.382683), new Vector(0.707107, 0.707107), new Vector(0.382683, 0.92388),
+        new Vector(0.0, 1.0), new Vector(-0.382683, 0.92388), new Vector(-0.707107, 0.707107), new Vector(-0.92388, 0.382683),
+        new Vector(-1.0, -0.0), new Vector(-0.92388, -0.382683), new Vector(-0.707107, -0.707107), new Vector(-0.382683, -0.92388),
+        new Vector(-0.0, -1.0), new Vector(0.382683, -0.92388), new Vector(0.707107, -0.707107), new Vector(0.92388, -0.382683)
     };
 
     Rectangle selection = EnvironmentParameters.GetSelection(src.Bounds).GetBoundsInt();
@@ -163,16 +245,16 @@ void PreRender(Surface dst, Surface src) {
     g_unit_height = (selection.Bottom - selection.Top) * (p_height / 100);
 
     // Prevent gradient squares from being smaller than pixels
-    if (g_unit_width < 1) {
-        g_unit_width = 1;
-        g_width = (selection.Right - selection.Left);
+    if (g_unit_width < 2) {
+        g_unit_width = 2;
+        g_width = (selection.Right - selection.Left) / 2;
     } else {
         g_width = (int) Math.Ceiling((100 / p_width));
     }
 
-    if (g_unit_height < 1) {
-        g_unit_height = 1;
-        g_height = (selection.Bottom - selection.Top);
+    if (g_unit_height < 2) {
+        g_unit_height = 2;
+        g_height = (selection.Bottom - selection.Top)/2;
     } else {
         g_height = (int) Math.Ceiling((100 / p_height));
     }
@@ -180,13 +262,22 @@ void PreRender(Surface dst, Surface src) {
     BuildGradient();
 }
 
-void Render(Surface dst, Surface src, Rectangle rect)
+unsafe void Render(Surface dst, Surface src, Rectangle rect)
 {
     Rectangle selection = EnvironmentParameters.GetSelection(src.Bounds).GetBoundsInt();
+    RGBVector colorDifference = new RGBVector(
+        black.R - white.R,
+        black.G - white.G,
+        black.B - white.B
+    );
+
+    RGBVector tmp = new RGBVector();
+    usr_w = tmp.FromBgra(white);
 
     for (int y = rect.Top; y < rect.Bottom; y++)
     {
         if (IsCancelRequested) return;
+        ColorBgra* dstPtr = dst.GetPointAddressUnchecked(rect.Left, y);
         for (int x = rect.Left; x < rect.Right; x++)
         {
             int adjY = y - selection.Top;
@@ -194,11 +285,11 @@ void Render(Surface dst, Surface src, Rectangle rect)
 
             double noise = Perlin(adjX, adjY);
             noise = (noise + 1) / 2; // Normalize it to be [0-1]
-            Debug.WriteLine("Noise: " + noise);
+            tmp = colorDifference.ScalarMult(noise);
+            tmp = tmp.Add(usr_w);            
 
-            byte val = (byte)(255 * noise);
-            Debug.WriteLine("Val: " + val);
-            dst[x,y] = ColorBgra.FromBgr(val, val, val);
+            *dstPtr = tmp.ToBgra();
+            dstPtr++;
         }
     }
 }
