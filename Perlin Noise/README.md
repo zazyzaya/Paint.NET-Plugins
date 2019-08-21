@@ -5,11 +5,15 @@ You can specify the size, and allowed angles of the underyling gradient that det
 
 Additionally, I turned an old bug that made the underlying gradient field visible into a feature. Select "rings" if you want to see the gradient lines that are doing the math behind the noise!
 
-![Example Image](img/example.png)
 *Normal output*
+![Example Image](img/example.png)
 
-![Example Image](img/example2.png)
+___
+
 *Colored output*
+![Example Image](img/example2.png)
 
-![Example Image](img/example3.png)
+___
+
 *It's not a bug; it's a feature!*
+![Example Image](img/example3.png)
