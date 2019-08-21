@@ -9,9 +9,9 @@ Turns a selected area into a mandala-like radial symmetry pattern based on the l
 <img src="./Kaleidoscope/img/example2.png" width="750">
 
 ### [Perlin Noise Generator](Perlin%20Noise)
-Just generates Perlin noise given user specifications. I couldn't help but notice that there are many PDN plugins that *utilize* Perlin noise, but none so far as I could tell, that generate it. Well, that's what this does. It's not glamorous, but it's necessary for lots of other cool stuff, so here you go.
+Just generates Perlin noise given user specifications. I couldn't help but notice that there are many PDN plugins that *utilize* Perlin noise, but none so far as I could tell, that generate it. Well, that's what this does. Additionally, I added a few cool features to color the noise that generate maps, the pattern on composition notebooks and other stuff
 
-<img src="./Perlin%20Noise/img/example.png" width="750">
+<img src="./Perlin%20Noise/img/example4.png" width="750">
 
 ### [Select Color Range](SelectColorRange)
 Similar to the Photoshop select color range tool. My first real PDN plugin. Better tools that do the same thing exist, but this one is mine.
