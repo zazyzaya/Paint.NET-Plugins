@@ -101,34 +101,24 @@ double getDistance(ColorBgra c) {
     return Math.Sqrt(c.R*c.R + c.G*c.G + c.B*c.B)/MaxDistance;
 }
 
-void PreRender(Surface dst, Surface src, Rectangle rect) {
+void PreRender(Surface dst, Surface src) {
     Rectangle selection = EnvironmentParameters.GetSelection(src.Bounds).GetBoundsInt();
     
-    // I'm not entirely sure if this is a multithreaded function, but just in case...
-    if (matrix==null) {
-        Monitor.Enter(matrix_lock);
-        try {
-            if (matrix==null) {
-                matrix = new Vector3D[selection.Width, selection.Height];
+    matrix = new Vector3D[selection.Width, selection.Height];
 
-                // Build 3D representation of image
-                for (int y=0; y<selection.Height; y++) {
-                    for (int x=0; x<selection.Width; x++) {
-                        matrix[x,y] = new Vector3D((double)x, (double)y, getDistance(src[x,y])*selection.Height);
-                    }
-                }
-            }
-        } finally {
-            Monitor.Exit(matrix_lock);
+    // Build 3D representation of image
+    for (int y=0; y<selection.Height; y++) {
+        for (int x=0; x<selection.Width; x++) {
+            matrix[x,y] = new Vector3D((double)x, (double)y, getDistance(src[x,y])*selection.Height);
         }
     }
-
+            
     // Rotate all parts of the matrix in the ROI
     Vector3D[] RotMatrix = unit_vector.GetRotZ(zrot);
     Vector3D me;
     
-    for (int y=rect.Top; y<rect.Bottom; y++) {
-        for (int x=rect.Left; x<rect.Right; x++) {
+    for (int y=selection.Top; y<selection.Bottom; y++) {
+        for (int x=selection.Left; x<selection.Right; x++) {
             me = matrix[x,y];
             matrix[x,y] = me.MultBy3x3(RotMatrix);        
         }
