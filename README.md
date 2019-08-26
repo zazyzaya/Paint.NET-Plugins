@@ -16,7 +16,7 @@ Just generates Perlin noise given user specifications. I couldn't help but notic
 ### [Make 3D](Make%203D)
 Projects a 2D image into 3D based on the intensity of the colors in the image. Mostly built as a test of my own matrix algebra memory, but it works pretty well. It's basically a simple raycasting tool. The user can define the angle the viewer is looking at the projection of the image from, and how much fog distance should add.
 
-<img src="./Make%203D/img/example.png" width="750">
+<img src="./Make%203D/img/example2.png" width="750">
 
 ### [Select Color Range](SelectColorRange)
 Similar to the Photoshop select color range tool. My first real PDN plugin. Better tools that do the same thing exist, but this one is mine.
