@@ -2,7 +2,7 @@
 // Submenu: Stylize
 // Author: Zaya
 // Title: Make 3D
-// Version: 1.1
+// Version: 1.2
 // Desc:
 // Keywords:
 // URL:
@@ -193,7 +193,7 @@ void Render(Surface dst, Surface src, Rectangle rect)
         for (int x = rect.Left; x < rect.Right; x++)
         {
             Coord bestCoords = new Coord(0,0);
-            double bestZ=0;
+            double bestZ=double.NegativeInfinity;
             Vector3D bestV= new Vector3D(0,0,0);
 
             if (sortedMatrix.ContainsKey(x+xtrans)) {
@@ -207,7 +207,7 @@ void Render(Surface dst, Surface src, Rectangle rect)
                     }
                 }
 
-                if (bestZ == double.PositiveInfinity) {
+                if (bestZ == 0) {
                     dst[x,y] = ColorBgra.FromBgr(75,75,75);
                 }
                 else {
