@@ -2,17 +2,18 @@
 // Submenu: Stylize
 // Author: Zaya
 // Title: Make 3D
-// Version: 1.2
+// Version: 1.3
 // Desc:
 // Keywords:
 // URL:
 // Help:
 #region UICode
-DoubleSliderControl density = 0.5; // [0,1] Fog Density
+DoubleSliderControl density = 0.5; // [0,2] Fog Density
 AngleControl zrot = 0; // [0,90] Viewing Angle Z
-AngleControl xrot = 0; // [-90, 90] Viewing Angle X
+AngleControl xrot = 0; // [-90,90] Viewing Angle X
 DoubleSliderControl xtransPercent = 0; // [-100,100] X-Translate
 DoubleSliderControl ytransPercent = 0; // [0,100] Y-Translate
+IntSliderControl u_white = 75; // [0,255] Black Tolerence
 #endregion
 
 // Quick Matrix struct. Makes life easier
@@ -109,14 +110,19 @@ Vector3D[,] matrix=null;
 Dictionary<int, List<VectorLocation>> sortedMatrix;
 const double MaxDistance = 441.6729559300637; // dist from White to
 
-// Based on Direct3D 9's D3DFOG_EXP function
+// Based on Direct3D 9's D3DFOG_EXP2 function
 double FogAmount(double amt) {
-    return 1 / Math.Exp(amt * density);
+    return 1 / Math.Exp(Math.Pow(amt * density, 2));
 }
 
 // Sloppy conversion of color into distance for z axis
 double getDistance(ColorBgra c) {
-    return Math.Sqrt((50-c.R)*(50-c.R) + (50-c.G)*(50-c.G) + (50-c.B)*(50-c.B))/MaxDistance;
+
+    return Math.Sqrt(
+        Math.Pow(u_white-c.R, 2) +
+        Math.Pow(u_white-c.G, 2) + 
+        Math.Pow(u_white-c.B, 2)
+    )/MaxDistance;
 }
 
 void PreRender(Surface dst, Surface src) {
