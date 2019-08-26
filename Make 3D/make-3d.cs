@@ -8,9 +8,8 @@
 // URL:
 // Help:
 #region UICode
-DoubleSliderControl density = 1; // [0,1] Fog Density
-ColorWheelControl black = ColorBgra.FromBgr(0,0,0); // [Black] Secondary Color
-AngleControl zrot = 0; // [0,45] Sample Angle 
+DoubleSliderControl density = 0.5; // [0,1] Fog Density
+AngleControl zrot = 0; // [0,90] Viewing Angle 
 #endregion
 
 // Quick Matrix struct. Makes life easier
@@ -86,9 +85,25 @@ struct Vector3D {
     }
 }
 
-Object matrix_lock = new Object();
+struct Coord {
+    public int x, y;
+    public Coord(int x, int y) {
+        this.x = x; this.y = y;
+    }
+}
+
+struct VectorLocation {
+    public Vector3D v;
+    public Coord c;
+
+    public VectorLocation (Vector3D v, Coord c){
+        this.v = v; this.c = c;
+    }
+}
+
 Vector3D unit_vector = new Vector3D(1,1,1);
 Vector3D[,] matrix=null;  
+Dictionary<int, List<VectorLocation>> sortedMatrix;
 const double MaxDistance = 441.6729559300637; // dist from White to
 
 // Based on Direct3D 9's D3DFOG_EXP function
@@ -107,20 +122,45 @@ void PreRender(Surface dst, Surface src) {
     matrix = new Vector3D[selection.Width, selection.Height];
 
     // Build 3D representation of image
-    for (int y=0; y<selection.Height; y++) {
-        for (int x=0; x<selection.Width; x++) {
-            matrix[x,y] = new Vector3D((double)x, (double)y, getDistance(src[x,y])*selection.Height);
+    for (int y=selection.Top; y<selection.Bottom; y++) {
+        for (int x=selection.Left; x<selection.Right; x++) {
+            Vector3D v = new Vector3D((double)x, getDistance(src[x,y])*selection.Height + selection.Top, (double)y);
+            
+            // Adjust to be between 0 and height/width
+            int adjx = x - selection.Left;
+            int adjy = y - selection.Top;
+
+            matrix[adjx, adjy] = v;
         }
     }
             
-    // Rotate all parts of the matrix in the ROI
-    Vector3D[] RotMatrix = unit_vector.GetRotZ(zrot);
+    // Rotate all parts of the matrix
+    double rads = ((double)zrot / 180) * Math.PI;
+    Vector3D[] RotMatrix = unit_vector.GetRotX(rads);
     Vector3D me;
+    sortedMatrix = new Dictionary<int, List<VectorLocation>>();
     
-    for (int y=selection.Top; y<selection.Bottom; y++) {
-        for (int x=selection.Left; x<selection.Right; x++) {
+    for (int y=0; y<selection.Height; y++) {
+        for (int x=0; x<selection.Width; x++) {
             me = matrix[x,y];
-            matrix[x,y] = me.MultBy3x3(RotMatrix);        
+            
+            Debug.WriteLine("Before: " + me.x + ", " + me.y+ ", " + me.z);
+
+            if (zrot != 0)
+                me = me.MultBy3x3(RotMatrix);    
+
+            Debug.WriteLine("After: " + me.x + ", " + me.y+ ", " + me.z);
+            
+            VectorLocation mePair = new VectorLocation(me, new Coord(x+selection.Left, y+selection.Top));
+
+            if (sortedMatrix.ContainsKey((int)me.x)) {
+                sortedMatrix[(int) me.x].Add(mePair);
+            }    
+            else {
+                List<VectorLocation> l = new List<VectorLocation>();
+                l.Add(mePair);
+                sortedMatrix.Add((int) me.x, l);
+            }
         }
     }
 }
@@ -136,43 +176,42 @@ void Render(Surface dst, Surface src, Rectangle rect)
         if (IsCancelRequested) return;
         for (int x = rect.Left; x < rect.Right; x++)
         {
-            Vector3D v = new Vector3D(0,0,0);
-            Pair<int, int> bestCoords = new Pair<int, int>(-1,-1);
-            int y_val=selection.Height;
-            double min_height = (double) y / (double) y_val;
+            Coord bestCoords = new Coord(0,0);
+            double bestZ=double.PositiveInfinity;
+            Vector3D bestV= new Vector3D(0,0,0);
 
-            for (int my=0; my<selection.Height; my++) {
-                for (int mx=0; mx<selection.Width; mx++) {
-                    v = matrix[mx,my];
-                    
-                    if ((int)v.x != x) {
-                        continue;
-                    }
-                    
-                    if (v.y < y_val) {
-                        if (v.z < min_height) {
-                            bestCoords = new Pair<int, int>(my, mx);
-                            y_val = (int)v.y;
-                        }
+            if (sortedMatrix.ContainsKey(x)) {
+                foreach (VectorLocation vl in sortedMatrix[x]) {
+                    Vector3D v = vl.v;
+
+                    if (v.z < bestZ && v.y < y) {
+                        bestCoords=vl.c;
+                        bestV = v;
+                        bestZ = v.z;
                     }
                 }
-            }
 
-            if (bestCoords.First == -1) {
-                dst[x,y] = ColorBgra.FromBgr(0,0,0);
-            }
+                if (bestZ == double.PositiveInfinity) {
+                    dst[x,y] = ColorBgra.FromBgr(75,75,75);
+                }
+                else {
+                    double dist = (bestV.z - selection.Top) / (double)(selection.Height);
+                    double fog = FogAmount(dist);
+                    
+                    //Debug.WriteLine("Dst Amt: " + dist);
+                    //Debug.WriteLine("Fog Amt: " + fog);
 
+                    px = src[bestCoords.x, bestCoords.y];
+                    px.R = (byte)((int) px.R*fog);
+                    px.G = (byte)((int) px.G*fog);
+                    px.B = (byte)((int) px.B*fog);
+
+                    dst[x,y] = px;
+                }
+            }
             else {
-                v = matrix[bestCoords.First, bestCoords.Second];
-                double dist = (v.y-(double)selection.Height) / (double)(selection.Height);
-                double fog = FogAmount(dist);
-                
-                px = src[bestCoords.First+selection.Top, bestCoords.Second+selection.Left];
-                px.R = (byte)((int) px.R*fog);
-                px.G = (byte)((int) px.G*fog);
-                px.B = (byte)((int) px.B*fog);
-
-                dst[x,y] = px;
+                Debug.WriteLine("Matrix did not contain key " + x);
+                dst[x,y] = ColorBgra.FromBgr(75,75,75);
             }
         }
     }
