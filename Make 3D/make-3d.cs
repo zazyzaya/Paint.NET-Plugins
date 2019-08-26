@@ -2,14 +2,17 @@
 // Submenu: Stylize
 // Author: Zaya
 // Title: Make 3D
-// Version: 1.0
+// Version: 1.1
 // Desc:
 // Keywords:
 // URL:
 // Help:
 #region UICode
 DoubleSliderControl density = 0.5; // [0,1] Fog Density
-AngleControl zrot = 0; // [0,90] Viewing Angle 
+AngleControl zrot = 0; // [0,90] Viewing Angle Z
+AngleControl xrot = 0; // [-90, 90] Viewing Angle X
+DoubleSliderControl xtransPercent = 0; // [-100,100] X-Translate
+DoubleSliderControl ytransPercent = 0; // [0,100] Y-Translate
 #endregion
 
 // Quick Matrix struct. Makes life easier
@@ -113,7 +116,7 @@ double FogAmount(double amt) {
 
 // Sloppy conversion of color into distance for z axis
 double getDistance(ColorBgra c) {
-    return Math.Sqrt(c.R*c.R + c.G*c.G + c.B*c.B)/MaxDistance;
+    return Math.Sqrt((50-c.R)*(50-c.R) + (50-c.G)*(50-c.G) + (50-c.B)*(50-c.B))/MaxDistance;
 }
 
 void PreRender(Surface dst, Surface src) {
@@ -124,7 +127,11 @@ void PreRender(Surface dst, Surface src) {
     // Build 3D representation of image
     for (int y=selection.Top; y<selection.Bottom; y++) {
         for (int x=selection.Left; x<selection.Right; x++) {
-            Vector3D v = new Vector3D((double)x, getDistance(src[x,y])*selection.Height + selection.Top, (double)y);
+            Vector3D v = new Vector3D(
+                (double)x, 
+                getDistance(src[x,y])*selection.Height + selection.Top, 
+                (double)y
+            );
             
             // Adjust to be between 0 and height/width
             int adjx = x - selection.Left;
@@ -135,8 +142,13 @@ void PreRender(Surface dst, Surface src) {
     }
             
     // Rotate all parts of the matrix
-    double rads = ((double)zrot / 180) * Math.PI;
-    Vector3D[] RotMatrix = unit_vector.GetRotX(rads);
+    double radsz = -((double)zrot / 180) * Math.PI;
+    double radsx = ((double)xrot / 180) * Math.PI;
+
+    // Apologies for the bad formatting. I organized my vectors wrong and this is just easier
+    Vector3D[] RotMatrixZ = unit_vector.GetRotX(radsz);
+    Vector3D[] RotMatrixX = unit_vector.GetRotY(radsx);
+
     Vector3D me;
     sortedMatrix = new Dictionary<int, List<VectorLocation>>();
     
@@ -147,7 +159,10 @@ void PreRender(Surface dst, Surface src) {
             Debug.WriteLine("Before: " + me.x + ", " + me.y+ ", " + me.z);
 
             if (zrot != 0)
-                me = me.MultBy3x3(RotMatrix);    
+                me = me.MultBy3x3(RotMatrixZ);    
+
+            if (xrot != 0)
+                me = me.MultBy3x3(RotMatrixX);
 
             Debug.WriteLine("After: " + me.x + ", " + me.y+ ", " + me.z);
             
@@ -167,8 +182,9 @@ void PreRender(Surface dst, Surface src) {
 
 void Render(Surface dst, Surface src, Rectangle rect)
 {
-    // Delete any of these lines you don't need
     Rectangle selection = EnvironmentParameters.GetSelection(src.Bounds).GetBoundsInt();
+    int xtrans = (int) (selection.Width * (xtransPercent/100));
+    int ytrans = (int) (selection.Height *(ytransPercent/100));
 
     ColorBgra px;
     for (int y = rect.Top; y < rect.Bottom; y++)
@@ -177,14 +193,14 @@ void Render(Surface dst, Surface src, Rectangle rect)
         for (int x = rect.Left; x < rect.Right; x++)
         {
             Coord bestCoords = new Coord(0,0);
-            double bestZ=double.PositiveInfinity;
+            double bestZ=0;
             Vector3D bestV= new Vector3D(0,0,0);
 
-            if (sortedMatrix.ContainsKey(x)) {
-                foreach (VectorLocation vl in sortedMatrix[x]) {
+            if (sortedMatrix.ContainsKey(x+xtrans)) {
+                foreach (VectorLocation vl in sortedMatrix[x+xtrans]) {
                     Vector3D v = vl.v;
 
-                    if (v.z < bestZ && v.y < y) {
+                    if (v.z > bestZ && v.y < y+ytrans) {
                         bestCoords=vl.c;
                         bestV = v;
                         bestZ = v.z;
@@ -195,7 +211,11 @@ void Render(Surface dst, Surface src, Rectangle rect)
                     dst[x,y] = ColorBgra.FromBgr(75,75,75);
                 }
                 else {
-                    double dist = (bestV.z - selection.Top) / (double)(selection.Height);
+                    double dist =   (selection.Height - (bestV.z-selection.Top))
+                                    / (double)(selection.Height);
+                    
+                    // Compensate for difference of y's
+                    dist += (y - bestV.y)/(double)(selection.Height);
                     double fog = FogAmount(dist);
                     
                     //Debug.WriteLine("Dst Amt: " + dist);
