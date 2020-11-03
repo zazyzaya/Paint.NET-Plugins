@@ -2,7 +2,7 @@
 // Submenu: Distort
 // Author: Zaya
 // Title:
-// Version: 1.3
+// Version: 1.4
 // Desc:
 // Keywords:
 // URL:
@@ -149,7 +149,7 @@ unsafe private void zFeather(ColorBgra *p, int x, int y) {
 
 // Set up globals
 void PreRender(Surface dst, Surface src) {
-    Rectangle selection = EnvironmentParameters.GetSelection(src.Bounds).GetBoundsInt();
+    Rectangle selection = EnvironmentParameters.GetSelectionAsPdnRegion().GetBoundsInt();
 
     if (radius == 0) {
         radius = Math.Min(selection.Height / 2, selection.Width / 2);
@@ -166,7 +166,7 @@ void PreRender(Surface dst, Surface src) {
 
 unsafe void Render(Surface dst, Surface src, Rectangle rect)
 {
-    Rectangle selection = EnvironmentParameters.GetSelection(src.Bounds).GetBoundsInt();
+    Rectangle selection = EnvironmentParameters.GetSelectionAsPdnRegion().GetBoundsInt();
     
     phi = offset * (Math.PI / 180);
     angle = Math.PI / slices;

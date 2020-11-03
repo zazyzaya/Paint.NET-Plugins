@@ -2,7 +2,7 @@
 // Submenu: Stylize
 // Author: Zaya
 // Title: Make 3D
-// Version: 1.3
+// Version: 1.4
 // Desc:
 // Keywords:
 // URL:
@@ -126,7 +126,7 @@ double getDistance(ColorBgra c) {
 }
 
 void PreRender(Surface dst, Surface src) {
-    Rectangle selection = EnvironmentParameters.GetSelection(src.Bounds).GetBoundsInt();
+    Rectangle selection = EnvironmentParameters.GetSelectionAsPdnRegion().GetBoundsInt();
     
     matrix = new Vector3D[selection.Width, selection.Height];
 
@@ -188,7 +188,7 @@ void PreRender(Surface dst, Surface src) {
 
 void Render(Surface dst, Surface src, Rectangle rect)
 {
-    Rectangle selection = EnvironmentParameters.GetSelection(src.Bounds).GetBoundsInt();
+    Rectangle selection = EnvironmentParameters.GetSelectionAsPdnRegion().GetBoundsInt();
     int xtrans = (int) (selection.Width * (xtransPercent/100));
     int ytrans = (int) (selection.Height *(ytransPercent/100));
 

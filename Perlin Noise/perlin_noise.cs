@@ -2,19 +2,19 @@
 // Submenu: Noise
 // Author: Zaya
 // Title: Perlin Noise Generator
-// Version: 1.1
+// Version: 1.2
 // Desc:
 // Keywords:
 // URL:
 // Help:
 #region UICode
-DoubleSliderControl p_width = 15; // [0,100] Gradient Width
-DoubleSliderControl p_height = 15; // [0,100] Gradient Height
+DoubleSliderControl p_width = 10; // [0,100] Gradient Width
+DoubleSliderControl p_height = 10; // [0,100] Gradient Height
 IntSliderControl octaves = 1; // [1,10] Octaves
 DoubleSliderControl persistance = 0.25; // [0.0001,1] 
 ColorWheelControl white = ColorBgra.FromBgr(255,255,255); // [White] Primary Color
 ColorWheelControl black = ColorBgra.FromBgr(0,0,0); // [Black] Secondary Color
-ListBoxControl ang_range = 0; // Angle Range|90|45|22.5|full
+ListBoxControl ang_range = 3; // Angle Range|90|45|22.5|full
 ListBoxControl coloring = 0; // Coloring Options|Default|Islands|Dalmation
 CheckboxControl not_smooth = false; // [0,1] Disable Smoothing
 CheckboxControl rings = false; // [0,1] Rings
@@ -220,9 +220,10 @@ double Perlin(int ox, int oy) {
             dy = y - (double)gy; // May need to flip this over (make +)
         }
         // Was originally a bug, but I think it makes a cool effect
+        // Fixed up a bit to make rings same size across image
         else {
-            dx = x - angle.x;
-            dy = x - angle.y;
+            dx = (double)gx % p_width - angle.x;
+            dy = (double)gy % p_height - angle.y;
         }
 
         // Take dot product w gradient vector
@@ -377,7 +378,7 @@ void PreRender(Surface dst, Surface src) {
         new Vector(-0.0, -1.0), new Vector(0.382683, -0.92388), new Vector(0.707107, -0.707107), new Vector(0.92388, -0.382683)
     };
 
-    Rectangle selection = EnvironmentParameters.GetSelection(src.Bounds).GetBoundsInt();
+    Rectangle selection = EnvironmentParameters.GetSelectionAsPdnRegion().GetBoundsInt();
 
     // How wide/tall the gradient blocks are
     g_unit_width = (selection.Right - selection.Left) * (p_width / 100);
@@ -406,7 +407,7 @@ void PreRender(Surface dst, Surface src) {
 
 unsafe void Render(Surface dst, Surface src, Rectangle rect)
 {
-    Rectangle selection = EnvironmentParameters.GetSelection(src.Bounds).GetBoundsInt();
+    Rectangle selection = EnvironmentParameters.GetSelectionAsPdnRegion().GetBoundsInt();
     
     // Set up globals for coloring functions
     RGBVector tmp = new RGBVector();
